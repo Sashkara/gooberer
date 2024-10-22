@@ -38,7 +38,7 @@ function generateTables() {
 
     tables.forEach(table => {
         try {
-            const section = createTableSection(table);
+            const section = createTableSection(table);  // Pass correct reference to section
             container.appendChild(section); // Append the section to the container
         } catch (error) {
             errorList.push(`Error generating table for ${table.title}: ${error.message}`);
@@ -57,13 +57,13 @@ function createTableSection(table) {
     title.textContent = table.title;
     section.appendChild(title);
 
-    const tableElement = createTableElement(table);
+    const tableElement = createTableElement(table, section);  // Pass section reference
     section.appendChild(tableElement);
 
     return section;
 }
 
-function createTableElement(table) {
+function createTableElement(table, section) {
     const tableElement = document.createElement('table');
     tableElement.id = `${table.tablename}-table`;
 
@@ -79,7 +79,7 @@ function createTableElement(table) {
     }
 
     if (data) {
-        const rowCount = addTableRows(tableElement, data, table.column.split(','));
+        const rowCount = addTableRows(tableElement, data, table.column.split(','), table.tablename);
         addRowCount(section, rowCount); // Add row count below the table
     }
 
@@ -104,13 +104,13 @@ function createTableHeader(columnString) {
     return headerRow;
 }
 
-function addTableRows(tableElement, data, columns) {
+function addTableRows(tableElement, data, columns, tableName) {
     let rowCount = 0;
 
     if (Array.isArray(data)) {
         data.forEach((row, index) => {
             try {
-                const dataRow = createDataRow(row, columns, index);
+                const dataRow = createDataRow(row, columns, index, tableName);
                 tableElement.appendChild(dataRow);
                 rowCount++;
             } catch (error) {
@@ -121,7 +121,7 @@ function addTableRows(tableElement, data, columns) {
         for (const key in data) {
             try {
                 const row = data[key];
-                const dataRow = createDataRow(row, columns, key);
+                const dataRow = createDataRow(row, columns, key, tableName);
                 tableElement.appendChild(dataRow);
                 rowCount++;
             } catch (error) {
@@ -133,7 +133,7 @@ function addTableRows(tableElement, data, columns) {
     return rowCount;
 }
 
-function createDataRow(row, columns, key) {
+function createDataRow(row, columns, key, tableName) {
     const dataRow = document.createElement('tr');
 
     columns.forEach(col => {
@@ -151,12 +151,12 @@ function createDataRow(row, columns, key) {
                 rowData = row ? row[trimmedCol] || '' : ''; // Standard field access
             }
 
-            if (!rowData) throw new Error(`Missing data for column ${col}`);
+            if (!rowData) throw new Error(`Missing data for column ${col} in table ${tableName}`);
 
             const dataCell = createDataCell(rowData || '');
             dataRow.appendChild(dataCell);
         } catch (error) {
-            errorList.push(`Error processing column ${col} for key ${key}: ${error.message}`);
+            errorList.push(`Error processing column ${col} for key ${key} in table ${tableName}: ${error.message}`);
         }
     });
 
