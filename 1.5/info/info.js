@@ -15,6 +15,7 @@ window.addEventListener('message', function(event) {
 
 function feature(){
     generateTables();
+    console.log(errorList)
 }
 
 function generateTables() {
