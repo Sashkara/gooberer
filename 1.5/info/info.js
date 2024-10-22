@@ -13,9 +13,24 @@ window.addEventListener('message', function(event) {
     feature();
 });
 
-function feature(){
-    generateTables();
-    console.log(errorList)
+function feature() {
+    try {
+        generateTables();
+        logErrors();
+    } catch (error) {
+        errorList.push(`Error in feature: ${error.message}`);
+        console.error(`Error in feature: ${error.message}`);
+    }
+}
+
+// Log any errors
+function logErrors() {
+    if (errorList.length > 0) {
+        console.error("Errors occurred during table generation:");
+        errorList.forEach(error => console.error(error));
+    } else {
+        console.log("No errors occurred.");
+    }
 }
 
 function generateTables() {
@@ -62,8 +77,10 @@ function createTableElement(table) {
         errorList.push(`Error evaluating data for ${table.tablename}: ${error.message}`);
         data = null;
     }
+
     if (data) {
-        addTableRows(tableElement, data, table.column.split(','));
+        const rowCount = addTableRows(tableElement, data, table.column.split(','));
+        addRowCount(section, rowCount); // Add row count below the table
     }
 
     return tableElement;
@@ -88,11 +105,14 @@ function createTableHeader(columnString) {
 }
 
 function addTableRows(tableElement, data, columns) {
+    let rowCount = 0;
+
     if (Array.isArray(data)) {
         data.forEach((row, index) => {
             try {
                 const dataRow = createDataRow(row, columns, index);
                 tableElement.appendChild(dataRow);
+                rowCount++;
             } catch (error) {
                 errorList.push(`Error adding row at index ${index}: ${error.message}`);
             }
@@ -103,11 +123,14 @@ function addTableRows(tableElement, data, columns) {
                 const row = data[key];
                 const dataRow = createDataRow(row, columns, key);
                 tableElement.appendChild(dataRow);
+                rowCount++;
             } catch (error) {
                 errorList.push(`Error adding row for key ${key}: ${error.message}`);
             }
         }
     }
+
+    return rowCount;
 }
 
 function createDataRow(row, columns, key) {
@@ -118,33 +141,40 @@ function createDataRow(row, columns, key) {
         const match = trimmedCol.match(/#(.+?)#/); // Match any custom data
         let rowData;
 
-        if (match) {
-            const valueToFind = match[1]; // Extract key for special handling
-            if (row && typeof row === 'object') {
-                // Check the relevant table data (lightTypes, weather, hordeCards, etc.)
-                rowData = getRowDataForKey(valueToFind, row, key);
+        try {
+            if (match) {
+                const valueToFind = match[1]; // Extract key for special handling
+                if (row && typeof row === 'object') {
+                    rowData = getRowDataForKey(valueToFind, row, key);
+                }
+            } else {
+                rowData = row ? row[trimmedCol] || '' : ''; // Standard field access
             }
-        } else {
-            rowData = row ? row[trimmedCol] || '' : ''; // Standard field access
-        }
 
-        const dataCell = createDataCell(rowData || '');
-        dataRow.appendChild(dataCell);
+            if (!rowData) throw new Error(`Missing data for column ${col}`);
+
+            const dataCell = createDataCell(rowData || '');
+            dataRow.appendChild(dataCell);
+        } catch (error) {
+            errorList.push(`Error processing column ${col} for key ${key}: ${error.message}`);
+        }
     });
 
     return dataRow;
 }
 
-// Extract data based on specific key from various sources
-function getRowDataForKey(key, row, rowKey) {
+function addRowCount(section, count) {
+    const rowCountElement = document.createElement('p');
+    rowCountElement.textContent = `Row count: ${count}`;
+    section.appendChild(rowCountElement);
+}
+
+// Utility function for retrieving row data
+function getRowDataForKey(dataset, key, rowKey, fallbackKey = '') {
     let rowData = '';
     try {
-        if (lightTypes.candle[key]) {
-            rowData = lightTypes.candle[key][rowKey] || lightTypes.candle[key].icon;
-        } else if (weather[key]) {
-            rowData = weather[key].on || ''; // Show weather status 'on'
-        } else if (hordeCards[key]) {
-            rowData = hordeCards[key].amount || ''; // Show horde cards amount
+        if (dataset[key]) {
+            rowData = dataset[key][rowKey] || dataset[key][fallbackKey] || '';
         }
     } catch (error) {
         errorList.push(`Error fetching row data for key ${key}: ${error.message}`);
@@ -171,6 +201,21 @@ function logErrors() {
         errorList.forEach(error => console.error(error));
     } else {
         console.log("No errors occurred.");
+    }
+}
+
+function populateTable(dataset, tableId) {
+    let table = document.getElementById(`${tableId}-table`);
+    let rows = table.getElementsByTagName('tr');
+
+    // Loop through each row and populate data
+    for (let i = 1; i < rows.length; i++) {
+        let cells = rows[i].getElementsByTagName('td');
+        // Assuming your first <th> is used as key and subsequent <td> is value
+        let key = cells[0].innerText; // First cell is the key
+        for (let j = 1; j < cells.length; j++) {
+            cells[j].innerText = getRowDataForKey(dataset, key, 'icon'); // Adjust based on column content
+        }
     }
 }
 
