@@ -1,6 +1,7 @@
 var save;
 var settings;
 var parameters = new URLSearchParams(document.location.search)
+let errorList = [];
 
 window.addEventListener('message', function(event) {
     let receivedData = JSON.parse(atob(event.data));
@@ -17,109 +18,109 @@ function feature(){
 }
 
 function generateTables() {
-const container = document.createElement('div'); // Create a container for the tables
+    const container = document.createElement('div'); // Create a container for the tables
 
-tables.forEach(table => {
-    // Create a section for each table
+    tables.forEach(table => {
+        try {
+            const section = createTableSection(table);
+            container.appendChild(section); // Append the section to the container
+        } catch (error) {
+            errorList.push(`Error generating table for ${table.title}: ${error.message}`);
+        }
+    });
+
+    document.body.appendChild(container); // Append the container to the body
+    logErrors(); // Log any errors that occurred
+}
+
+function createTableSection(table) {
     const section = document.createElement('div');
     section.id = table.tablename;
 
-    // Add the title
     const title = document.createElement('h3');
     title.textContent = table.title;
     section.appendChild(title);
 
-    // Create the table
+    const tableElement = createTableElement(table);
+    section.appendChild(tableElement);
+
+    return section;
+}
+
+function createTableElement(table) {
     const tableElement = document.createElement('table');
     tableElement.id = `${table.tablename}-table`;
 
-    // Create table header
+    const headerRow = createTableHeader(table.column);
+    tableElement.appendChild(headerRow);
+
+    const data = eval(table.tablename); // Evaluate the variable name to get the data
+    addTableRows(tableElement, data, table.column.split(','));
+
+    return tableElement;
+}
+
+function createTableHeader(columnString) {
     const headerRow = document.createElement('tr');
-    const columns = table.column.split(',');
+    const columns = columnString.split(',');
 
     columns.forEach(col => {
         const trimmedCol = col.trim();
         const match = trimmedCol.match(/#(.+?)#\((.+?)\)/);
-        if (match) {
-            // Column name is given
-            const columnName = match[2]; // Column name
-            headerRow.appendChild(createHeaderCell(columnName));
-        } else {
-            // Normal column without special handling
-            headerRow.appendChild(createHeaderCell(trimmedCol));
-        }
+        const columnName = match ? match[2] : trimmedCol; // Extract the column name
+
+        const th = createHeaderCell(columnName);
+        headerRow.appendChild(th);
     });
-    tableElement.appendChild(headerRow);
 
-    // Fetch the relevant data for the table
-    const data = eval(table.tablename); // Evaluate the variable name to get the data
+    return headerRow;
+}
 
+function addTableRows(tableElement, data, columns) {
     if (Array.isArray(data)) {
-        // If the data is an array, iterate over the array to create rows
         data.forEach(row => {
-            const dataRow = document.createElement('tr');
-            
-            columns.forEach(col => {
-                const trimmedCol = col.trim();
-                const match = trimmedCol.match(/#(.+?)#/);
-
-                if (match) {
-                    // The value to look for
-                    const valueToFind = match[1]; // e.g., "tealight"
-                    // Find the corresponding entry in the object based on the value
-                    const value = Object.keys(lightTypes.candle).find(key => key === valueToFind) ? valueToFind : '';
-                    const rowData = lightTypes.candle[value]; // Get the object
-
-                    // If rowData exists, get the appropriate column value
-                    if (rowData) {
-                        dataRow.appendChild(createDataCell(value)); // Add the value itself
-                    } else {
-                        dataRow.appendChild(createDataCell('')); // Fallback for missing data
-                    }
-                } else {
-                    // Standard field access
-                    dataRow.appendChild(createDataCell(row[trimmedCol] || ''));
-                }
-            });
-            
-            tableElement.appendChild(dataRow);
+            try {
+                const dataRow = createDataRow(row, columns);
+                tableElement.appendChild(dataRow);
+            } catch (error) {
+                errorList.push(`Error adding row: ${error.message}`);
+            }
         });
     } else if (typeof data === 'object') {
-        // If the data is an object, iterate over its keys
         for (const key in data) {
-            const dataRow = document.createElement('tr');
-            const item = data[key];
-
-            columns.forEach(col => {
-                const trimmedCol = col.trim();
-                const match = trimmedCol.match(/#(.+?)#/);
-
-                if (match) {
-                    // The value to look for
-                    const valueToFind = match[1]; // e.g., "tealight"
-                    // Find the corresponding entry in the object based on the value
-                    const rowData = lightTypes.candle[valueToFind]; // Get the object
-
-                    // If rowData exists, add the appropriate column value
-                    if (rowData) {
-                        dataRow.appendChild(createDataCell(rowData[trimmedCol] || ''));
-                    } else {
-                        dataRow.appendChild(createDataCell('')); // Fallback for missing data
-                    }
-                } else {
-                    // Standard field access
-                    dataRow.appendChild(createDataCell(item[trimmedCol] || ''));
-                }
-            });
-            tableElement.appendChild(dataRow);
+            try {
+                const dataRow = createDataRow(data[key], columns);
+                tableElement.appendChild(dataRow);
+            } catch (error) {
+                errorList.push(`Error adding row for key ${key}: ${error.message}`);
+            }
         }
     }
+}
 
-    section.appendChild(tableElement);
-    container.appendChild(section); // Append the section to the container
-});
+function createDataRow(row, columns) {
+    const dataRow = document.createElement('tr');
 
-document.body.appendChild(container); // Append the container to the body
+    columns.forEach(col => {
+        const trimmedCol = col.trim();
+        const match = trimmedCol.match(/#(.+?)#/);
+
+        if (match) {
+            const valueToFind = match[1]; // e.g., "tealight"
+            const rowData = lightTypes.candle[valueToFind]; // Get the object
+
+            if (rowData) {
+                dataRow.appendChild(createDataCell(rowData[trimmedCol] || ''));
+            } else {
+                dataRow.appendChild(createDataCell('')); // Fallback for missing data
+            }
+        } else {
+            // Standard field access
+            dataRow.appendChild(createDataCell(row[trimmedCol] || ''));
+        }
+    });
+
+    return dataRow;
 }
 
 // Helper functions to create header and data cells
@@ -133,6 +134,13 @@ function createDataCell(text) {
     const td = document.createElement('td');
     td.textContent = text;
     return td;
+}
+
+function logErrors() {
+    if (errorList.length > 0) {
+        console.error("Errors occurred during table generation:");
+        errorList.forEach(error => console.error(error));
+    }
 }
 
 let tables = [{tablename:'lightTypes', title:'Light Types', column:'#tealight#(type),icon,cost,duration'},
