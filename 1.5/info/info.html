@@ -55,7 +55,7 @@
                 const trimmedCol = col.trim();
                 const match = trimmedCol.match(/#(.+?)#\((.+?)\)/);
                 if (match) {
-                    // If it matches the pattern with # and ()
+                    // Column name is given
                     const columnName = match[2]; // Column name
                     headerRow.appendChild(createHeaderCell(columnName));
                 } else {
@@ -75,16 +75,13 @@
                     
                     columns.forEach(col => {
                         const trimmedCol = col.trim();
-                        const match = trimmedCol.match(/#(.+?)#\((.+?)\)/);
+                        const match = trimmedCol.match(/#(.+?)#/);
     
                         if (match) {
-                            // Special case handling
-                            const dataField = match[1]; // The variable name to look for
-                            const fieldName = match[2]; // The field name to access
-                            if (data[dataField]) {
-                                const value = data[dataField][row] || ''; // Safely access the value
-                                dataRow.appendChild(createDataCell(value));
-                            }
+                            // Extract the value from the row using the matched key
+                            const key = match[1]; // Get the key (e.g., "tealight")
+                            const value = row[key] || ''; // Use the key to access the value
+                            dataRow.appendChild(createDataCell(value));
                         } else {
                             // Standard field access
                             dataRow.appendChild(createDataCell(row[trimmedCol] || ''));
