@@ -219,35 +219,11 @@ function createTableElement(table, section) {
     }
 
     if (data) {
-        const filteredData = filterLightTypes(data); // Filter out irrelevant objects (like 'candle' and 'activeCandle')
-        const rowCount = addTableRows(tableElement, filteredData, table.column.split(','), table.tablename);
+        const rowCount = addTableRows(tableElement, data, table.column.split(','), table.tablename);
         addRowCount(section, rowCount); // Add row count below the table
     }
 
     return tableElement;
-}
-
-// Function to filter light types and ignore irrelevant objects
-function filterLightTypes(data) {
-    const result = [];
-
-    // Recursively check for objects that contain 'icon', 'cost', and 'duration'
-    function checkAndExtract(obj) {
-        for (const key in obj) {
-            const value = obj[key];
-            if (typeof value === 'object' && value !== null) {
-                if ('icon' in value && 'cost' in value && 'duration' in value) {
-                    result.push(value); // Extract relevant data
-                } else {
-                    checkAndExtract(value); // Recursively dive deeper
-                }
-            }
-        }
-    }
-
-    checkAndExtract(data); // Start filtering with provided data
-
-    return result;
 }
 
 function createTableHeader(columnString) {
@@ -255,95 +231,86 @@ function createTableHeader(columnString) {
     const columns = columnString.split(',');
     columns.forEach(col => {
         const trimmedCol = col.trim();
-        const match = trimmedCol.match(/#(.+?)#\((.+?)\)/); // Match any custom columns
-        let columnName;
-        if (match) {
-            columnName = match[2];
-        } else {
-            columnName = trimmedCol.replace(/\(.*?\)/, '');
-        }
+        const columnName = trimmedCol.replace(/\(.*?\)/, '');  // Strip special identifiers
         const th = createHeaderCell(columnName);
         headerRow.appendChild(th);
     });
     return headerRow;
 }
 
+// Add rows by extracting keys or values depending on columns
 function addTableRows(tableElement, data, columns, tableName) {
     let rowCount = 0;
 
-    if (Array.isArray(data)) {
-        data.forEach((row, index) => {
-            try {
-                const dataRow = createDataRow(row, columns, index, tableName);
-                tableElement.appendChild(dataRow);
-                rowCount++;
-            } catch (error) {
-                errorList.push(`Error adding row at index ${index}: ${error.message}`);
-            }
+    // Handle cases for nested objects like lightTypes
+    if (tableName === 'lightTypes') {
+        const filteredLightTypes = filterLightTypes(data);
+        filteredLightTypes.forEach((row, key) => {
+            const dataRow = document.createElement('tr');
+            columns.forEach(col => {
+                const trimmedCol = col.trim();
+                let rowData;
+
+                if (trimmedCol === 'type') {
+                    // If the column is 'type', use the key (e.g., 'tealight', 'regular')
+                    rowData = key;
+                } else {
+                    // For other columns, get the values inside the object
+                    rowData = row[trimmedCol] || '';
+                }
+
+                const dataCell = createDataCell(rowData);
+                dataRow.appendChild(dataCell);
+            });
+            tableElement.appendChild(dataRow);
+            rowCount++;
         });
-    } else if (typeof data === 'object') {
+    } else {
+        // For other tables, handle object traversal based on columns
         for (const key in data) {
-            try {
-                const row = data[key];
-                const dataRow = createDataRow(row, columns, key, tableName);
-                tableElement.appendChild(dataRow);
-                rowCount++;
-            } catch (error) {
-                errorList.push(`Error adding row for key ${key}: ${error.message}`);
-            }
+            const row = data[key];
+            const dataRow = document.createElement('tr');
+
+            columns.forEach(col => {
+                const trimmedCol = col.trim();
+                let rowData;
+
+                try {
+                    // Use the key or value based on the column
+                    rowData = row[trimmedCol] || '';
+                    if (!rowData) throw new Error(`Missing data for column ${trimmedCol}`);
+                } catch (error) {
+                    errorList.push(`Error processing column ${trimmedCol} for key ${key} in table ${tableName}: ${error.message}`);
+                }
+
+                const dataCell = createDataCell(rowData);
+                dataRow.appendChild(dataCell);
+            });
+
+            tableElement.appendChild(dataRow);
+            rowCount++;
         }
     }
 
     return rowCount;
 }
 
-function createDataRow(row, columns, key, tableName) {
-    const dataRow = document.createElement('tr');
-
-    columns.forEach(col => {
-        const trimmedCol = col.trim();
-        const match = trimmedCol.match(/#(.+?)#/); // Match any custom data
-        let rowData;
-
-        try {
-            if (match) {
-                const valueToFind = match[1]; // Extract key for special handling
-                if (row && typeof row === 'object') {
-                    rowData = getRowDataForKey(valueToFind, row, key);
-                }
-            } else {
-                rowData = row ? row[trimmedCol] || '' : ''; // Standard field access
-            }
-
-            if (!rowData) throw new Error(`Missing data for column ${col} in table ${tableName}`);
-
-            const dataCell = createDataCell(rowData || '');
-            dataRow.appendChild(dataCell);
-        } catch (error) {
-            errorList.push(`Error processing column ${col} for key ${key} in table ${tableName}: ${error.message}`);
+function filterLightTypes(data) {
+    const result = {};
+    // Extract keys with valid icon, cost, duration
+    for (const key in data.candle) {
+        const entry = data.candle[key];
+        if (entry.icon && entry.cost && entry.duration) {
+            result[key] = entry; // Save key (e.g., tealight, regular) and its associated data
         }
-    });
-
-    return dataRow;
+    }
+    return result;
 }
 
 function addRowCount(section, count) {
     const rowCountElement = document.createElement('p');
     rowCountElement.textContent = `Row count: ${count}`;
     section.appendChild(rowCountElement);
-}
-
-// Utility function for retrieving row data
-function getRowDataForKey(dataset, key, rowKey, fallbackKey = '') {
-    let rowData = '';
-    try {
-        if (dataset[key]) {
-            rowData = dataset[key][rowKey] || dataset[key][fallbackKey] || '';
-        }
-    } catch (error) {
-        errorList.push(`Error fetching row data for key ${key}: ${error.message}`);
-    }
-    return rowData;
 }
 
 // Helper functions to create header and data cells
