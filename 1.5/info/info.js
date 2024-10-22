@@ -1,1 +1,248 @@
+var save;
+var settings;
+var parameters = new URLSearchParams(document.location.search)
 
+window.addEventListener('message', function(event) {
+    let receivedData = JSON.parse(atob(event.data));
+    if (receivedData.action !== 'initData' || receivedData.action === 'jsException') {
+        return;
+    }
+    save = receivedData.save;
+    settings = receivedData.settings;
+    feature();
+});
+
+function feature(){
+    generateTables();
+}
+
+function generateTables() {
+const container = document.createElement('div'); // Create a container for the tables
+
+tables.forEach(table => {
+    // Create a section for each table
+    const section = document.createElement('div');
+    section.id = table.tablename;
+
+    // Add the title
+    const title = document.createElement('h3');
+    title.textContent = table.title;
+    section.appendChild(title);
+
+    // Create the table
+    const tableElement = document.createElement('table');
+    tableElement.id = `${table.tablename}-table`;
+
+    // Create table header
+    const headerRow = document.createElement('tr');
+    const columns = table.column.split(',');
+
+    columns.forEach(col => {
+        const trimmedCol = col.trim();
+        const match = trimmedCol.match(/#(.+?)#\((.+?)\)/);
+        if (match) {
+            // Column name is given
+            const columnName = match[2]; // Column name
+            headerRow.appendChild(createHeaderCell(columnName));
+        } else {
+            // Normal column without special handling
+            headerRow.appendChild(createHeaderCell(trimmedCol));
+        }
+    });
+    tableElement.appendChild(headerRow);
+
+    // Fetch the relevant data for the table
+    const data = eval(table.tablename); // Evaluate the variable name to get the data
+
+    if (Array.isArray(data)) {
+        // If the data is an array, iterate over the array to create rows
+        data.forEach(row => {
+            const dataRow = document.createElement('tr');
+            
+            columns.forEach(col => {
+                const trimmedCol = col.trim();
+                const match = trimmedCol.match(/#(.+?)#/);
+
+                if (match) {
+                    // The value to look for
+                    const valueToFind = match[1]; // e.g., "tealight"
+                    // Find the corresponding entry in the object based on the value
+                    const value = Object.keys(lightTypes.candle).find(key => key === valueToFind) ? valueToFind : '';
+                    const rowData = lightTypes.candle[value]; // Get the object
+
+                    // If rowData exists, get the appropriate column value
+                    if (rowData) {
+                        dataRow.appendChild(createDataCell(value)); // Add the value itself
+                    } else {
+                        dataRow.appendChild(createDataCell('')); // Fallback for missing data
+                    }
+                } else {
+                    // Standard field access
+                    dataRow.appendChild(createDataCell(row[trimmedCol] || ''));
+                }
+            });
+            
+            tableElement.appendChild(dataRow);
+        });
+    } else if (typeof data === 'object') {
+        // If the data is an object, iterate over its keys
+        for (const key in data) {
+            const dataRow = document.createElement('tr');
+            const item = data[key];
+
+            columns.forEach(col => {
+                const trimmedCol = col.trim();
+                const match = trimmedCol.match(/#(.+?)#/);
+
+                if (match) {
+                    // The value to look for
+                    const valueToFind = match[1]; // e.g., "tealight"
+                    // Find the corresponding entry in the object based on the value
+                    const rowData = lightTypes.candle[valueToFind]; // Get the object
+
+                    // If rowData exists, add the appropriate column value
+                    if (rowData) {
+                        dataRow.appendChild(createDataCell(rowData[trimmedCol] || ''));
+                    } else {
+                        dataRow.appendChild(createDataCell('')); // Fallback for missing data
+                    }
+                } else {
+                    // Standard field access
+                    dataRow.appendChild(createDataCell(item[trimmedCol] || ''));
+                }
+            });
+            tableElement.appendChild(dataRow);
+        }
+    }
+
+    section.appendChild(tableElement);
+    container.appendChild(section); // Append the section to the container
+});
+
+document.body.appendChild(container); // Append the container to the body
+}
+
+// Helper functions to create header and data cells
+function createHeaderCell(text) {
+    const th = document.createElement('th');
+    th.textContent = text;
+    return th;
+}
+
+function createDataCell(text) {
+    const td = document.createElement('td');
+    td.textContent = text;
+    return td;
+}
+
+let tables = [{tablename:'lightTypes', title:'Light Types', column:'#tealight#(type),icon,cost,duration'},
+            {tablename:'weather', title:'Weather', column:'#sun#(weathertype),#mdi-weather-sunny#'},
+            {tablename:'cards', title:'Cards', column:'id,color,value(wert)'},]
+
+let cards = [
+{id: 1, instant: true, collection: 'preciousJewelry', reward: [
+    {name: 'gem_ruby', type: 'currency', value: 50}
+], color: 'red', icons: [
+    {"x": 0, "y": -0.05, "rotate": 0, "size": 2, "icon": "mdi-train"},
+    {"x": 0.15, "y": 0.85, "rotate": 90, "size": 2, "icon": "mdi-fence"},
+    {"x": 0, "y": -0.75, "rotate": 0, "size": 1, "icon": "mdi-rhombus"}
+]},
+{id: 2, instant: true, collection: 'preciousJewelry', reward: [
+    {name: 'gem_emerald', type: 'currency', value: 50}
+], color: 'green', icons: [
+    {"x": -0.25, "y": 0, "rotate": 0, "size": 3, "icon": "mdi-tunnel-outline"},
+    {"x": 0.8, "y": 0.4, "rotate": 105, "size": 1.5, "icon": "mdi-pickaxe"},
+    {"x": -0.4, "y": 0.35, "rotate": 0, "size": 0.5, "icon": "mdi-hexagon"},
+    {"x": 0, "y": 0.25, "rotate": 0, "size": 0.5, "icon": "mdi-hexagon"},
+    {"x": -0.25, "y": -0.25, "rotate": 0, "size": 0.5, "icon": "mdi-hexagon"}
+]},
+{id: 3, instant: true, collection: 'preciousJewelry', reward: [
+    {name: 'gem_sapphire', type: 'currency', value: 50}
+], color: 'indigo', icons: [
+    {"x": -0.15, "y": 1.1, "rotate": 0, "size": 1.5, "icon": "mdi-sail-boat-sink"},
+    {"x": 0.2, "y": 1.15, "rotate": 0, "size": 0.65, "icon": "mdi-treasure-chest"},
+    {"x": 0, "y": -0.26, "rotate": 0, "size": 1.5, "icon": "mdi-ferry"},
+    {"x": -0.65, "y": 0.3, "rotate": 0, "size": 1.5, "icon": "mdi-waves"},
+    {"x": 0, "y": 0.3, "rotate": 0, "size": 1.5, "icon": "mdi-waves"},
+    {"x": 0.65, "y": 0.3, "rotate": 0, "size": 1.5, "icon": "mdi-waves"},
+    {"x": 0.25, "y": 0.95, "rotate": 0, "size": 0.4, "icon": "mdi-pentagon"}
+]},
+{id: 4, instant: true, collection: 'preciousJewelry', reward: [
+    {name: 'gem_amethyst', type: 'currency', value: 50}
+], color: 'purple', icons: [
+    {"x": 0, "y": 0, "rotate": 0, "size": 4, "icon": "mdi-watch-variant"},
+    {"x": 0, "y": -0.15, "rotate": 90, "size": 1, "icon": "mdi-minus"},
+    {"x": -0.3, "y": -0.3, "rotate": -45, "size": 0.65, "icon": "mdi-cards-diamond"},
+    {"x": 0.3, "y": -0.3, "rotate": 45, "size": 0.65, "icon": "mdi-cards-diamond"},
+    {"x": 0.3, "y": 0.3, "rotate": -45, "size": 0.65, "icon": "mdi-cards-diamond"},
+    {"x": -0.3, "y": 0.3, "rotate": 45, "size": 0.65, "icon": "mdi-cards-diamond"},
+    {"x": -0.1, "y": 0.05, "rotate": -20, "size": 0.6, "icon": "mdi-minus-thick"}
+]},
+{id: 5, instant: true, collection: 'preciousJewelry', reward: [
+    {name: 'gem_topaz', type: 'currency', value: 50}
+], color: 'amber', icons: [
+    {"x": 0, "y": -0.6, "rotate": 0, "size": 2, "icon": "mdi-triangle-outline"},
+    {"x": -0.7, "y": 0.6, "rotate": 0, "size": 2, "icon": "mdi-triangle"},
+    {"x": 0.7, "y": 0.6, "rotate": 0, "size": 2, "icon": "mdi-triangle"},
+    {"x": 0, "y": -0.5, "rotate": 0, "size": 1.15, "icon": "mdi-emoticon-angry"}
+]},
+{id: 6, instant: true, collection: 'preciousJewelry', reward: [
+    {name: 'gem_diamond', type: 'currency', value: 5}
+], color: 'cyan', icons: [
+    {"x": 0, "y": 0, "rotate": -45, "size": 2, "icon": "mdi-pickaxe"},
+    {"x": 0.7, "y": 0.25, "rotate": 0, "size": 2, "icon": "mdi-axe"},
+    {"x": -0.7, "y": 0.3, "rotate": 95, "size": 2, "icon": "mdi-shovel"},
+    {"x": -0.5, "y": -0.7, "rotate": 0, "size": 0.75, "icon": "mdi-diamond"},
+    {"x": 0.5, "y": -0.7, "rotate": 0, "size": 0.75, "icon": "mdi-diamond"}
+]},
+{id: 7, instant: true, collection: 'preciousJewelry', reward: [
+    {name: 'gem_onyx', type: 'currency', value: 1}
+], color: 'deep-purple', icons: [
+    {"x": 0, "y": 0.15, "rotate": 0, "size": 0.75, "icon": "mdi-octagon"},
+    {"x": 0, "y": 0, "rotate": 90, "size": 2, "icon": "mdi-mirror-rectangle"},
+    {"x": 0, "y": 0.85, "rotate": 0, "size": 2.5, "icon": "mdi-dresser"},
+    {"x": 1.1, "y": -0.8, "rotate": 0, "size": 1.25, "icon": "mdi-cctv"}
+]},
+];
+
+let weather = {
+        sun: {on: 'mdi-weather-sunny', off: 'mdi-weather-sunny-off'},
+        rain: {on: 'mdi-water', off: 'mdi-water-off'},
+        snow: {on: 'mdi-snowflake', off: 'mdi-snowflake-off'},
+        thunder: {on: 'mdi-flash', off: 'mdi-flash-off'},
+        wind: {on: 'mdi-weather-windy', off: 'mdi-weather-cloudy'}
+    }
+
+let lightTypes = {
+    candle: {
+        tealight: {
+            icon: 'mdi-light-recessed',
+            cost: 15,
+            duration: 30,
+            soot: 5,
+            lightMult: 25
+        },
+        regular: {
+            icon: 'mdi-candle',
+            cost: 36,
+            duration: 3600,
+            soot: 25,
+            lightMult: 1.25
+        },
+        aroma: {
+            icon: 'mdi-candle',
+            cost: 48,
+            duration: 14400,
+            soot: 20,
+            lightMult: 1.5
+        },
+        chandelier: {
+            icon: 'mdi-candelabra-fire',
+            cost: 75,
+            duration: 900,
+            soot: 30,
+            lightMult: 7
+        }
+    },
+    activeCandle: null
+}
