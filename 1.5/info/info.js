@@ -13,212 +13,6 @@ window.addEventListener('message', function(event) {
     feature();
 });
 
-function feature() {
-    try {
-        generateTables();
-        logErrors();
-    } catch (error) {
-        errorList.push(`Error in feature: ${error.message}`);
-        console.error(`Error in feature: ${error.message}`);
-    }
-}
-
-// Log any errors
-function logErrors() {
-    if (errorList.length > 0) {
-        console.error("Errors occurred during table generation:");
-        errorList.forEach(error => console.error(error));
-    } else {
-        console.log("No errors occurred.");
-    }
-}
-
-function generateTables() {
-    const container = document.createElement('div'); // Create a container for the tables
-
-    tables.forEach(table => {
-        try {
-            const section = createTableSection(table);  // Pass correct reference to section
-            container.appendChild(section); // Append the section to the container
-        } catch (error) {
-            errorList.push(`Error generating table for ${table.title}: ${error.message}`);
-        }
-    });
-
-    document.body.appendChild(container); // Append the container to the body
-    logErrors(); // Log any errors that occurred
-}
-
-function createTableSection(table) {
-    const section = document.createElement('div');
-    section.id = table.tablename;
-
-    const title = document.createElement('h3');
-    title.textContent = table.title;
-    section.appendChild(title);
-
-    const tableElement = createTableElement(table, section);  // Pass section reference
-    section.appendChild(tableElement);
-
-    return section;
-}
-
-function createTableElement(table, section) {
-    const tableElement = document.createElement('table');
-    tableElement.id = `${table.tablename}-table`;
-
-    const headerRow = createTableHeader(table.column);
-    tableElement.appendChild(headerRow);
-
-    let data;
-    try {
-        data = eval(table.tablename); // Evaluate the variable name to get the data
-    } catch (error) {
-        errorList.push(`Error evaluating data for ${table.tablename}: ${error.message}`);
-        data = null;
-    }
-
-    if (data) {
-        const rowCount = addTableRows(tableElement, data, table.column.split(','), table.tablename);
-        addRowCount(section, rowCount); // Add row count below the table
-    }
-
-    return tableElement;
-}
-
-function createTableHeader(columnString) {
-    const headerRow = document.createElement('tr');
-    const columns = columnString.split(',');
-    columns.forEach(col => {
-        const trimmedCol = col.trim();
-        const match = trimmedCol.match(/#(.+?)#\((.+?)\)/); // Match any custom columns
-        let columnName;
-        if (match) {
-            columnName = match[2];
-        } else {
-            columnName = trimmedCol.replace(/\(.*?\)/, '');
-        }
-        const th = createHeaderCell(columnName);
-        headerRow.appendChild(th);
-    });
-    return headerRow;
-}
-
-function addTableRows(tableElement, data, columns, tableName) {
-    let rowCount = 0;
-
-    if (Array.isArray(data)) {
-        data.forEach((row, index) => {
-            try {
-                const dataRow = createDataRow(row, columns, index, tableName);
-                tableElement.appendChild(dataRow);
-                rowCount++;
-            } catch (error) {
-                errorList.push(`Error adding row at index ${index}: ${error.message}`);
-            }
-        });
-    } else if (typeof data === 'object') {
-        for (const key in data) {
-            try {
-                const row = data[key];
-                const dataRow = createDataRow(row, columns, key, tableName);
-                tableElement.appendChild(dataRow);
-                rowCount++;
-            } catch (error) {
-                errorList.push(`Error adding row for key ${key}: ${error.message}`);
-            }
-        }
-    }
-
-    return rowCount;
-}
-
-function createDataRow(row, columns, key, tableName) {
-    const dataRow = document.createElement('tr');
-
-    columns.forEach(col => {
-        const trimmedCol = col.trim();
-        const match = trimmedCol.match(/#(.+?)#/); // Match any custom data
-        let rowData;
-
-        try {
-            if (match) {
-                const valueToFind = match[1]; // Extract key for special handling
-                if (row && typeof row === 'object') {
-                    rowData = getRowDataForKey(valueToFind, row, key);
-                }
-            } else {
-                rowData = row ? row[trimmedCol] || '' : ''; // Standard field access
-            }
-
-            if (!rowData) throw new Error(`Missing data for column ${col} in table ${tableName}`);
-
-            const dataCell = createDataCell(rowData || '');
-            dataRow.appendChild(dataCell);
-        } catch (error) {
-            errorList.push(`Error processing column ${col} for key ${key} in table ${tableName}: ${error.message}`);
-        }
-    });
-
-    return dataRow;
-}
-
-function addRowCount(section, count) {
-    const rowCountElement = document.createElement('p');
-    rowCountElement.textContent = `Row count: ${count}`;
-    section.appendChild(rowCountElement);
-}
-
-// Utility function for retrieving row data
-function getRowDataForKey(dataset, key, rowKey, fallbackKey = '') {
-    let rowData = '';
-    try {
-        if (dataset[key]) {
-            rowData = dataset[key][rowKey] || dataset[key][fallbackKey] || '';
-        }
-    } catch (error) {
-        errorList.push(`Error fetching row data for key ${key}: ${error.message}`);
-    }
-    return rowData;
-}
-
-// Helper functions to create header and data cells
-function createHeaderCell(text) {
-    const th = document.createElement('th');
-    th.textContent = text;
-    return th;
-}
-
-function createDataCell(text) {
-    const td = document.createElement('td');
-    td.textContent = text;
-    return td;
-}
-
-function logErrors() {
-    if (errorList.length > 0) {
-        console.error("Errors occurred during table generation:");
-        errorList.forEach(error => console.error(error));
-    } else {
-        console.log("No errors occurred.");
-    }
-}
-
-function populateTable(dataset, tableId) {
-    let table = document.getElementById(`${tableId}-table`);
-    let rows = table.getElementsByTagName('tr');
-
-    // Loop through each row and populate data
-    for (let i = 1; i < rows.length; i++) {
-        let cells = rows[i].getElementsByTagName('td');
-        // Assuming your first <th> is used as key and subsequent <td> is value
-        let key = cells[0].innerText; // First cell is the key
-        for (let j = 1; j < cells.length; j++) {
-            cells[j].innerText = getRowDataForKey(dataset, key, 'icon'); // Adjust based on column content
-        }
-    }
-}
-
 let tables = [{tablename:'lightTypes', title:'Light Types', column:'#tealight#(type),icon,cost,duration'},
             {tablename:'weather', title:'Weather', column:'#sun#(weathertype),#mdi-weather-sunny#'},
             {tablename:'hordeCards', title:'Horde Cards', column:'#rookieOnTheBattlefield#(Card Name),amount,price(proce)'},
@@ -356,4 +150,211 @@ let lightTypes = {
         }
     },
     activeCandle: null
+}
+
+
+function feature() {
+    try {
+        generateTables();
+        logErrors();
+    } catch (error) {
+        errorList.push(`Error in feature: ${error.message}`);
+        console.error(`Error in feature: ${error.message}`);
+    }
+}
+
+// Log any errors
+function logErrors() {
+    if (errorList.length > 0) {
+        console.error("Errors occurred during table generation:");
+        errorList.forEach(error => console.error(error));
+    } else {
+        console.log("No errors occurred.");
+    }
+}
+
+function generateTables() {
+    const container = document.createElement('div'); // Create a container for the tables
+
+    tables.forEach(table => {
+        try {
+            const section = createTableSection(table);  // Pass correct reference to section
+            container.appendChild(section); // Append the section to the container
+        } catch (error) {
+            errorList.push(`Error generating table for ${table.title}: ${error.message}`);
+        }
+    });
+
+    document.body.appendChild(container); // Append the container to the body
+    logErrors(); // Log any errors that occurred
+}
+
+function createTableSection(table) {
+    const section = document.createElement('div');
+    section.id = table.tablename;
+
+    const title = document.createElement('h3');
+    title.textContent = table.title;
+    section.appendChild(title);
+
+    const tableElement = createTableElement(table, section);  // Pass section reference
+    section.appendChild(tableElement);
+
+    return section;
+}
+
+function createTableElement(table, section) {
+    const tableElement = document.createElement('table');
+    tableElement.id = `${table.tablename}-table`;
+
+    const headerRow = createTableHeader(table.column);
+    tableElement.appendChild(headerRow);
+
+    let data;
+    try {
+        data = eval(table.tablename); // Evaluate the variable name to get the data
+    } catch (error) {
+        errorList.push(`Error evaluating data for ${table.tablename}: ${error.message}`);
+        data = null;
+    }
+
+    if (data) {
+        const filteredData = filterLightTypes(data); // Filter out irrelevant objects (like 'candle' and 'activeCandle')
+        const rowCount = addTableRows(tableElement, filteredData, table.column.split(','), table.tablename);
+        addRowCount(section, rowCount); // Add row count below the table
+    }
+
+    return tableElement;
+}
+
+// Function to filter light types and ignore irrelevant objects
+function filterLightTypes(data) {
+    const result = [];
+
+    // Recursively check for objects that contain 'icon', 'cost', and 'duration'
+    function checkAndExtract(obj) {
+        for (const key in obj) {
+            const value = obj[key];
+            if (typeof value === 'object' && value !== null) {
+                if ('icon' in value && 'cost' in value && 'duration' in value) {
+                    result.push(value); // Extract relevant data
+                } else {
+                    checkAndExtract(value); // Recursively dive deeper
+                }
+            }
+        }
+    }
+
+    checkAndExtract(data); // Start filtering with provided data
+
+    return result;
+}
+
+function createTableHeader(columnString) {
+    const headerRow = document.createElement('tr');
+    const columns = columnString.split(',');
+    columns.forEach(col => {
+        const trimmedCol = col.trim();
+        const match = trimmedCol.match(/#(.+?)#\((.+?)\)/); // Match any custom columns
+        let columnName;
+        if (match) {
+            columnName = match[2];
+        } else {
+            columnName = trimmedCol.replace(/\(.*?\)/, '');
+        }
+        const th = createHeaderCell(columnName);
+        headerRow.appendChild(th);
+    });
+    return headerRow;
+}
+
+function addTableRows(tableElement, data, columns, tableName) {
+    let rowCount = 0;
+
+    if (Array.isArray(data)) {
+        data.forEach((row, index) => {
+            try {
+                const dataRow = createDataRow(row, columns, index, tableName);
+                tableElement.appendChild(dataRow);
+                rowCount++;
+            } catch (error) {
+                errorList.push(`Error adding row at index ${index}: ${error.message}`);
+            }
+        });
+    } else if (typeof data === 'object') {
+        for (const key in data) {
+            try {
+                const row = data[key];
+                const dataRow = createDataRow(row, columns, key, tableName);
+                tableElement.appendChild(dataRow);
+                rowCount++;
+            } catch (error) {
+                errorList.push(`Error adding row for key ${key}: ${error.message}`);
+            }
+        }
+    }
+
+    return rowCount;
+}
+
+function createDataRow(row, columns, key, tableName) {
+    const dataRow = document.createElement('tr');
+
+    columns.forEach(col => {
+        const trimmedCol = col.trim();
+        const match = trimmedCol.match(/#(.+?)#/); // Match any custom data
+        let rowData;
+
+        try {
+            if (match) {
+                const valueToFind = match[1]; // Extract key for special handling
+                if (row && typeof row === 'object') {
+                    rowData = getRowDataForKey(valueToFind, row, key);
+                }
+            } else {
+                rowData = row ? row[trimmedCol] || '' : ''; // Standard field access
+            }
+
+            if (!rowData) throw new Error(`Missing data for column ${col} in table ${tableName}`);
+
+            const dataCell = createDataCell(rowData || '');
+            dataRow.appendChild(dataCell);
+        } catch (error) {
+            errorList.push(`Error processing column ${col} for key ${key} in table ${tableName}: ${error.message}`);
+        }
+    });
+
+    return dataRow;
+}
+
+function addRowCount(section, count) {
+    const rowCountElement = document.createElement('p');
+    rowCountElement.textContent = `Row count: ${count}`;
+    section.appendChild(rowCountElement);
+}
+
+// Utility function for retrieving row data
+function getRowDataForKey(dataset, key, rowKey, fallbackKey = '') {
+    let rowData = '';
+    try {
+        if (dataset[key]) {
+            rowData = dataset[key][rowKey] || dataset[key][fallbackKey] || '';
+        }
+    } catch (error) {
+        errorList.push(`Error fetching row data for key ${key}: ${error.message}`);
+    }
+    return rowData;
+}
+
+// Helper functions to create header and data cells
+function createHeaderCell(text) {
+    const th = document.createElement('th');
+    th.textContent = text;
+    return th;
+}
+
+function createDataCell(text) {
+    const td = document.createElement('td');
+    td.textContent = text;
+    return td;
 }
