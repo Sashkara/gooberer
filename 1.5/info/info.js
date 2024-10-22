@@ -171,12 +171,13 @@ function logErrors() {
         errorList.forEach(error => console.error(error));
     } else {
         console.log("No errors occurred.");
+    }
 }
 
 let tables = [{tablename:'lightTypes', title:'Light Types', column:'#tealight#(type),icon,cost,duration'},
             {tablename:'weather', title:'Weather', column:'#sun#(weathertype),#mdi-weather-sunny#'},
             {tablename:'hordeCards', title:'Horde Cards', column:'#rookieOnTheBattlefield#(Card Name),amount,price(proce)'},
-            {tablename:'cards', title:'Cards', column:'id,color,value(wert)'},]
+            {tablename:'cards', title:'Cards', column:'id,color,value(wert)'}]
 
 let hordeCards = {
         rookieOnTheBattlefield: {unlock: 'hordeItems', amount: 3, price: 20, content: {
