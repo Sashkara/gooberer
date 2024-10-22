@@ -74,7 +74,7 @@ function createTableHeader(columnString) {
     const columns = columnString.split(',');
     columns.forEach(col => {
         const trimmedCol = col.trim();
-        const match = trimmedCol.match(/#(.+?)#\((.+?)\)/);
+        const match = trimmedCol.match(/#(.+?)#\((.+?)\)/); // Match any custom columns
         let columnName;
         if (match) {
             columnName = match[2];
@@ -89,19 +89,19 @@ function createTableHeader(columnString) {
 
 function addTableRows(tableElement, data, columns) {
     if (Array.isArray(data)) {
-        data.forEach(row => {
+        data.forEach((row, index) => {
             try {
-                const dataRow = createDataRow(row, columns);
+                const dataRow = createDataRow(row, columns, index);
                 tableElement.appendChild(dataRow);
             } catch (error) {
-                errorList.push(`Error adding row: ${error.message}`);
+                errorList.push(`Error adding row at index ${index}: ${error.message}`);
             }
         });
     } else if (typeof data === 'object') {
         for (const key in data) {
             try {
                 const row = data[key];
-                const dataRow = createDataRow(row, columns, key); // Pass key as well
+                const dataRow = createDataRow(row, columns, key);
                 tableElement.appendChild(dataRow);
             } catch (error) {
                 errorList.push(`Error adding row for key ${key}: ${error.message}`);
@@ -115,42 +115,41 @@ function createDataRow(row, columns, key) {
 
     columns.forEach(col => {
         const trimmedCol = col.trim();
-        const match = trimmedCol.match(/#(.+?)#/); // Match the key from the column definition
+        const match = trimmedCol.match(/#(.+?)#/); // Match any custom data
+        let rowData;
 
         if (match) {
-            const valueToFind = match[1]; // Extract key for special handling like #mdi-weather-sunny#
-            let rowData;
-
+            const valueToFind = match[1]; // Extract key for special handling
             if (row && typeof row === 'object') {
-                // Handle lightTypes and other nested objects
-                if (lightTypes.candle[valueToFind]) {
-                    rowData = lightTypes.candle[valueToFind][key] || lightTypes.candle[valueToFind].icon;
-                }
-
-                // Handle weather
-                if (weather[valueToFind]) {
-                    rowData = weather[valueToFind].on || ''; // Assuming we want to show 'on' status
-                }
-
-                // Handle hordeCards
-                if (hordeCards[valueToFind]) {
-                    rowData = hordeCards[valueToFind].amount || ''; // Handle amount for horde cards
-                }
-            }
-
-            if (rowData) {
-                dataRow.appendChild(createDataCell(rowData));
-            } else {
-                dataRow.appendChild(createDataCell('')); // Empty cell for missing data
+                // Check the relevant table data (lightTypes, weather, hordeCards, etc.)
+                rowData = getRowDataForKey(valueToFind, row, key);
             }
         } else {
-            // Standard field access or column like cost, price, etc.
-            const fieldValue = row ? row[trimmedCol] || '' : '';
-            dataRow.appendChild(createDataCell(fieldValue));
+            rowData = row ? row[trimmedCol] || '' : ''; // Standard field access
         }
+
+        const dataCell = createDataCell(rowData || '');
+        dataRow.appendChild(dataCell);
     });
 
     return dataRow;
+}
+
+// Extract data based on specific key from various sources
+function getRowDataForKey(key, row, rowKey) {
+    let rowData = '';
+    try {
+        if (lightTypes.candle[key]) {
+            rowData = lightTypes.candle[key][rowKey] || lightTypes.candle[key].icon;
+        } else if (weather[key]) {
+            rowData = weather[key].on || ''; // Show weather status 'on'
+        } else if (hordeCards[key]) {
+            rowData = hordeCards[key].amount || ''; // Show horde cards amount
+        }
+    } catch (error) {
+        errorList.push(`Error fetching row data for key ${key}: ${error.message}`);
+    }
+    return rowData;
 }
 
 // Helper functions to create header and data cells
@@ -172,7 +171,6 @@ function logErrors() {
         errorList.forEach(error => console.error(error));
     } else {
         console.log("No errors occurred.");
-    }
 }
 
 let tables = [{tablename:'lightTypes', title:'Light Types', column:'#tealight#(type),icon,cost,duration'},
