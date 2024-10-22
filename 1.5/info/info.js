@@ -54,8 +54,32 @@ function createTableElement(table) {
     const headerRow = createTableHeader(table.column);
     tableElement.appendChild(headerRow);
 
-    const data = eval(table.tablename); // Evaluate the variable name to get the data
-    addTableRows(tableElement, data, table.column.split(','));
+    let data;
+    try {
+        data = eval(table.tablename); // Evaluate the variable name to get the data
+    } catch (error) {
+        throw new Error(`Data not found for table: ${table.tablename}`);
+    }
+
+    if (Array.isArray(data)) {
+        data.forEach(row => {
+            try {
+                const dataRow = createDataRow(row, table.column.split(','));
+                tableElement.appendChild(dataRow);
+            } catch (error) {
+                errorList.push(`Error adding row to ${table.tablename}: ${error.message}`);
+            }
+        });
+    } else if (typeof data === 'object') {
+        Object.keys(data).forEach(key => {
+            try {
+                const dataRow = createDataRow(data[key], table.column.split(','));
+                tableElement.appendChild(dataRow);
+            } catch (error) {
+                errorList.push(`Error adding row for key ${key} in ${table.tablename}: ${error.message}`);
+            }
+        });
+    }
 
     return tableElement;
 }
@@ -68,34 +92,11 @@ function createTableHeader(columnString) {
         const trimmedCol = col.trim();
         const match = trimmedCol.match(/#(.+?)#\((.+?)\)/);
         const columnName = match ? match[2] : trimmedCol; // Extract the column name
-
         const th = createHeaderCell(columnName);
         headerRow.appendChild(th);
     });
 
     return headerRow;
-}
-
-function addTableRows(tableElement, data, columns) {
-    if (Array.isArray(data)) {
-        data.forEach(row => {
-            try {
-                const dataRow = createDataRow(row, columns);
-                tableElement.appendChild(dataRow);
-            } catch (error) {
-                errorList.push(`Error adding row: ${error.message}`);
-            }
-        });
-    } else if (typeof data === 'object') {
-        for (const key in data) {
-            try {
-                const dataRow = createDataRow(data[key], columns);
-                tableElement.appendChild(dataRow);
-            } catch (error) {
-                errorList.push(`Error adding row for key ${key}: ${error.message}`);
-            }
-        }
-    }
 }
 
 function createDataRow(row, columns) {
@@ -106,8 +107,15 @@ function createDataRow(row, columns) {
         const match = trimmedCol.match(/#(.+?)#/);
 
         if (match) {
-            const valueToFind = match[1]; // e.g., "tealight"
-            const rowData = lightTypes.candle[valueToFind]; // Get the object
+            const valueToFind = match[1]; // E.g., "tealight"
+            let rowData;
+
+            try {
+                rowData = eval(`lightTypes.candle.${valueToFind}`); // Get nested data using eval
+            } catch (error) {
+                errorList.push(`Error accessing nested data for ${valueToFind}: ${error.message}`);
+                rowData = null;
+            }
 
             if (rowData) {
                 dataRow.appendChild(createDataCell(rowData[trimmedCol] || ''));
@@ -115,8 +123,7 @@ function createDataRow(row, columns) {
                 dataRow.appendChild(createDataCell('')); // Fallback for missing data
             }
         } else {
-            // Standard field access
-            dataRow.appendChild(createDataCell(row[trimmedCol] || ''));
+            dataRow.appendChild(createDataCell(row[trimmedCol] || '')); // Standard field access
         }
     });
 
